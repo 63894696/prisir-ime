@@ -1,0 +1,25 @@
+[package]
+name = "prisir_ime"
+version = "0.1.0"
+edition = "2021"
+description = "Prisir Browser 内置输入法引擎(Rust)— 拼音/词组/混拼/智能整句,逻辑移植自已验证的 Python lingxi_ime"
+
+[lib]
+name = "prisir_ime"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "1"
+atomicwrites = "0.4"
+memmap2 = "0.9.11"
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

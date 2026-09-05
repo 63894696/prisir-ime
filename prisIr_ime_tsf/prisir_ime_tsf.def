@@ -1,0 +1,27 @@
+LIBRARY prisir_ime_tsf
+EXPORTS
+    ; === TSF COM 入口(纯 COM, 对标搜狗 SogouTSF.ime 只有 4 个 COM 导出) ===
+    DllGetClassObject
+    DllCanUnloadNow
+    DllRegisterServer
+    DllUnregisterServer
+    DllInstall
+    ; === IMM32 .ime 导出(进系统搜索框) ===
+    ; 2026-09-03: IMM 导出已拆到 prisir_ime_imm.def(imm_only feature)。
+    ; 本 TSF 版默认不再带 IMM(对标搜狗职责分离)。保留注释作历史记录。
+    ; ImeInquire
+    ; ImeSelect
+    ; ImeProcessKey
+    ; ImeToAsciiEx
+    ; NotifyIME
+    ; ImeConfigure
+    ; ImeEscape
+    ; ImeDestroy
+    ; ImeSetActiveContext
+    ; ImeConversionList
+    ; ImeSetCompositionString
+    ; ImeRegisterWord
+    ; ImeUnregisterWord
+    ; ImeGetRegisterWordStyle
+    ; ImeEnumRegisterWord
+    ; ImeGetImeMenuItems

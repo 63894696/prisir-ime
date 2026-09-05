@@ -1,0 +1,21 @@
+LIBRARY prisir_ime_imm
+EXPORTS
+    ; === 纯 IMM32 引擎导出(对标搜狗 SogouPY.ime: 零 COM, 只 IMM) ===
+    ; 2026-09-03 根因: 双导出单文件(COM+IMM)被 SearchApp IMM 加载器拒激活。
+    ; 搜狗 SogouPY.ime 是纯 IMM(15 个 ImeXxx, 无 DllGetClassObject)。
+    ImeInquire
+    ImeSelect
+    ImeProcessKey
+    ImeToAsciiEx
+    NotifyIME
+    ImeConfigure
+    ImeEscape
+    ImeDestroy
+    ImeSetActiveContext
+    ImeConversionList
+    ImeSetCompositionString
+    ImeRegisterWord
+    ImeUnregisterWord
+    ImeGetRegisterWordStyle
+    ImeEnumRegisterWord
+    ImeGetImeMenuItems

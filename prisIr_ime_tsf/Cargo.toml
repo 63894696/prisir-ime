@@ -1,0 +1,85 @@
+[package]
+name = "prisir_ime_tsf"
+version = "0.7.0"
+edition = "2021"
+description = "Prisir 输入法 TSF COM 实现 — ITfTextInputProcessor + ITextStoreACP + 拼音查询 FFI 桥 + CTF HKCU 注册(T4) + daemon WTS + DLL 热重载(T5) + stdio JSON-RPC server(T6) + 拼音/五笔输入法切换(T7) + WTS 真消息循环 + hidden HWND(T10) + admin 提升 + DllRegisterServer (T24)"
+
+[lib]
+name = "prisir_ime_tsf"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+windows = { version = "0.58", features = [
+    "Win32_UI_TextServices",
+    "Win32_UI_Input_KeyboardAndMouse",  # T25: ITfInputProcessorProfileMgr::ActivateProfile 的 HKL 参数
+    "Win32_System_Com",
+    "Win32_Foundation",
+    "Win32_System_Registry",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Controls",                 # Step2: 词库管理窗口 SetScrollInfo(原生滚动条)
+    "Win32_System_Console",     # T4: SetConsoleCtrlHandler for --daemon
+    "Win32_Security",           # T4: RegCreateKeyExW 需要 SECURITY_ATTRIBUTES 类型
+    "Win32_System_StationsAndDesktops",  # T5: WTS注册接口(T6 升级用)
+    "Win32_System_RemoteDesktop",        # T5: WTSGetActiveConsoleSessionId 在这里
+    "Win32_Graphics_Gdi",                # T10: WNDCLASSEXW + RegisterClassExW (HBRUSH/HICON/HCURSOR 字段需要)
+    "Win32_Graphics_Direct2D",           # 彩色 emoji: ID2D1HwndRenderTarget 画到面板
+    "Win32_Graphics_Direct2D_Common",    # D2D1_COLOR_F / D2D1_RECT_F / D2D1_PIXEL_FORMAT
+    "Win32_Graphics_DirectWrite",        # 彩色 emoji: IDWriteFactory + DrawTextLayout 走 COLR
+    "Win32_Graphics_Dxgi_Common",        # DXGI_FORMAT_B8G8R8A8_UNORM (像素格式)
+    "Foundation_Numerics",               # D2D 部分方法(CreateSolidColorBrush/DrawTextLayout)的 cfg 门槛
+    "Win32_UI_Shell",                    # T24 P2: ShellExecuteExW "runas" 自动 UAC 提升
+    "Win32_System_Threading",            # T24 P2: GetCurrentProcess / OpenProcessToken / GetTokenInformation
+    "Win32_Storage_FileSystem",          # T25: DllGetClassObject 入口日志(CreateFileW/WriteFile)
+    "Win32_System_IO",                   # T25: WriteFile 需要
+    "Win32_System_SystemInformation",    # 2026-09-03: GetTickCount 日志时间戳
+    "Win32_UI_Input_Ime",                # 2026-09-03: IMM32 .ime 导出(TRANSMSG/IMEINFO/ImmInstallIMEW)
+    "Win32_UI_TabletPC",                 # 2026-09-04 手写改 Windows Ink: IInkDisp/IInkRecognizerContext
+    "Win32_System_Variant",              # InitVariantFromInt32Array(笔画坐标 SAFEARRAY→VARIANT)
+    "Win32_System_Ole",                  # TabletPC CreateStroke 的 VARIANT/SAFEARRAY 支持
+    "Win32_Graphics_Imaging",            # 状态栏彩色 emoji: WIC 内存位图承载 D2D,再 BitBlt 贴回 GDI
+    "Win32_Networking_WinHttp",          # 每日活跃信号: WinHttpOpen/WinHttpSendRequest GET updates.json
+    "Win32_System_Environment",          # 诊断包: GetComputerNameW 拿主机名(system_info.txt)
+    "implement",
+] }
+windows-core = "0.58"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# 手写识别独立进程(prisir_hw):ort 推理 ochw MobileNetV2。load-dynamic 运行时加载
+# onnxruntime 动态库(随安装包带 ort dll),不在编译期静态链接。
+ort = { version = "2.0.0-rc.13", default-features = false, features = ["load-dynamic"], optional = true }
+
+# T3/#88 LangBar: 把 pinyin.ico 编成 DLL 图标资源。
+# 根因(2026-09-01 诊断): ITfLangBarItemMgr::AddItem 据 GetInfo.clsidService 反查
+# profile 的 IconFile(C:\PrisirIME\prisir_ime_tsf.dll) 提取图标,我们 DLL 无图标资源
+# → ExtractIcon 失败 → AddItem 返 E_FAIL 0x80004005(且永远走不到 GetIcon)。
+# 嵌入后 IconIndex 0x0 即资源里第一个图标,任务栏/LangBar 都能取到。
+[build-dependencies]
+winres = "0.1"
+
+[features]
+# T25: DllGetClassObject 入口日志(写 C:\Temp\prisir_dll_log.txt),诊断 ctfmon 是否调 DLL
+dllentry_log = []
+# 2026-09-03: 纯 IMM 引擎导出(零 COM)→ prisir_ime_imm.ime,对标搜狗 SogouPY.ime。
+# 根因:双导出单文件(COM+IMM)被 SearchApp IMM 加载器拒激活,ImeProcessKey 永不被调。
+# 拆两份:TSF 用 prisir_ime_tsf.dll(COM),IMM 用 prisir_ime_imm.ime(纯 IMM)。
+imm_only = []
+# 手写 bin 需要 ort;主 DLL / prisir_tsfsvc 不依赖 ort(--bin prisir_hw 单独拉)。
+hw = ["dep:ort"]
+
+[[bin]]
+name = "prisir_tsfsvc"
+path = "src/main.rs"
+
+# 手写识别独立推理进程(2026-09-04):ort 载 ochw 模型,stdio JSON-RPC 收笔画轨迹返 topN。
+# 独立进程 → IME DLL 不背 28MB 模型;首次识别懒加载,之后常驻。
+# required-features = hw → 只有 --features hw 才编这个 bin(主 DLL/其它 bin 不背 ort)。
+[[bin]]
+name = "prisir_hw"
+path = "src/bin/prisir_hw.rs"
+required-features = ["hw"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
