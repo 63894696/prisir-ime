@@ -65,4 +65,10 @@ cargo build --target aarch64-linux-android --release
 
 ## License
 
-见 [LICENSE.txt](installer/stage/LICENSE.txt)
+**GNU Affero General Public License v3.0 or later** — see [LICENSE](LICENSE).
+
+Attribution is required, and derivative works must remain open source, including
+when the software is only offered as a network service (AGPL §13). What is
+covered, what keeps its own license, and the commercial-exception path are
+described in [LICENSING.md](LICENSING.md).
+
